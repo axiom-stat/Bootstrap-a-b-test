@@ -21,21 +21,21 @@ A deep-dive investigation uncovered a hidden retention crisis:
 
 | Metric (`Standard` Tier) | Control (Flat Fee) | Experimental (Dynamic ML) | Impact & Significance |
 | :--- | :---: | :---: | :--- |
-| Median Buyer Fee (`service_fee`) | ~$3.79 | ~$4.87 | **+$1.08** (95% BCa CI `[1.02, 1.13]`) |
-| 7-Day Repeat Order Rate (`Retention`) | 33.9% | 25.2% | **-8.7 pp** (-25.6% relative drop, $p < 0.001$) |
-| Average Order Rating (`CSAT`) | 3.90 | 3.65 | **-0.25 stars** (1-2 star share doubled) |
-| Expected Orders per User | 1.51 | 1.34 | **-11.6%** (order frequency collapse) |
-| Expected GMV per User | $62.99 | $54.74 | **-$8.25** (-13.1% turnover drop) |
+| Median Buyer Fee (all orders, `service_fee`) | ~\$3.82 | ~\$4.90 | **+\$1.08** (95% BCa CI `[1.03, 1.15]`) |
+| 7-Day Repeat Order Rate (`Retention`) | 34.0% | 25.1% | **-8.9 pp** (-26.1% relative drop, $p < 0.001$) |
+| Average Order Rating (`CSAT`, all orders) | 3.90 | 3.65 | **-0.25 stars** (1-2 star share jumped 16.6% to 29.0% in `Standard`) |
+| Expected Orders per User (`Standard` < \$500) | 1.51 | 1.34 | **-11.6%** (order frequency collapse) |
+| Expected GMV per User (`Standard` < \$500) | \$63.08 | \$54.76 | **-\$8.33** (-13.2% turnover drop) |
 
 **Why the feature loses money over time:**
-On small baskets ($15-$30) in the core `Standard` tier, the ML algorithm pushed the effective fee up to 25-40% of cart value, triggering severe price shock and customer churn. Per 1,000 `Standard` users, the business gains +$969 in buyer service fees but loses -$8,253 in GMV. Assuming a conservative 15% merchant commission on GMV, lost merchant margin equals -$1,238 - resulting in a **net loss of -$269 per 1,000 users**, before accounting for Customer Acquisition Cost (CAC) required to replace churned buyers
+On small baskets (\$15-\$20) in the core `Standard` tier, the ML algorithm pushed the effective fee up to 25-40% of cart value, triggering severe price shock and customer churn. Per 1,000 `Standard` users (delivered orders under \$500), the business gains +\$964 in buyer service fees but loses -\$8,327 in GMV. Assuming a conservative 15% merchant commission on GMV, lost merchant margin equals -\$1,249 - resulting in a **net loss of -\$285 per 1,000 users**, before accounting for Customer Acquisition Cost (CAC) required to replace churned buyers
 
 ---
 
 ### Analytical Pipeline
 
-1. **Data Hygiene & Audit:** cleaned raw transaction logs (~1.6% corrupted records: duplicate rows, negative fees, zero-duration GPS glitches) and verified strict user-level randomization (`assert` across `user_id`)
-2. **EDA & Take-Rate Dynamics:** analyzed heavy-tailed order distributions, whale orders (>$800), and hyperbolic fee spikes on low-value carts
+1. **Data Hygiene & Audit:** cleaned raw transaction logs (~1.58% corrupted records: 28 duplicate rows, negative fees, zero-duration GPS glitches) and verified strict user-level randomization across `user_id`
+2. **EDA & Take-Rate Dynamics:** analyzed heavy-tailed order distributions, whale orders (>\$800), and hyperbolic fee spikes on low-value carts
 3. **Bootstrap (BCa) vs t-test:** addressed severe right-skewness by running vectorized `scipy.stats.bootstrap` (10,000 resamples, BCa intervals) for both mean and median fee shifts
 4. **Segmentation & Churn Validation:** isolated heterogeneous treatment effects across loyalty tiers (`Standard`, `Plus`, `Premium`) and confirmed statistically significant retention drop via `pingouin.chi2_independence` (Cramer's V = 0.097, Power = 1.0)
 5. **Unit-Economics Modeling:** projected customer lifetime orders via $1 / (1 - p)$ to quantify GMV loss and formulate an actionable rollback decision
@@ -45,7 +45,7 @@ On small baskets ($15-$30) in the core `Standard` tier, the ML algorithm pushed 
 ### Executive Decision & Recommendations
 
 - **Decision:** **Rollback** the current model and halt the 100% rollout
-- **Cap Small-Basket Take-Rate:** enforce a hard ceiling of 12-15% on orders under $40 to eliminate checkout price shock
+- **Cap Small-Basket Take-Rate:** enforce a hard ceiling of 12-15% on orders under \$40 to eliminate checkout price shock
 - **Align ML Objective Function:** optimize the pricing model for long-term LTV (balancing repeat purchase probability and GMV retention) rather than single-order `service_fee`
 
 ---
